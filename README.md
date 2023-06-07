@@ -1,9 +1,8 @@
 # genius-api
 
-[![GoDoc](https://godoc.org/github.com/gabyshev/genius-api/genius?status.svg)](https://godoc.org/github.com/gabyshev/genius-api/genius)
+[![GoDoc](https://godoc.org/github.com/broxgit/genius-api/genius?status.svg)](https://godoc.org/github.com/broxgit/genius-api/genius)
 
 Golang bindings for Genius API.
-Package is not ready to use yet and may change drastically in the future.
 
 To get token visit https://genius.com/developers
 
@@ -12,7 +11,7 @@ To get token visit https://genius.com/developers
 ```go
 import (
 	"fmt"
-	"github.com/gabyshev/genius-api/genius"
+	"github.com/broxgit/genius-api/genius"
 )
 
 func main() {

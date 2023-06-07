@@ -1,27 +1,28 @@
 package genius
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"strconv"
 )
 
 const (
-	//baseURL is the endpoint for all API methods
 	baseURL string = "https://api.genius.com"
 )
 
-//Client is a client for Genius API
+// Client is a client for Genius API.
 type Client struct {
 	AccessToken string
 	client      *http.Client
 }
 
-//NewClient creates Client to work with Genius API
-//You can pass http.Client or it will use http.DefaultClient by default
+// NewClient creates Client to work with Genius API
+// You can pass http.Client or it will use http.DefaultClient by default
 //
-//It requires a token for accessing Genius API
+// It requires a token for accessing Genius API.
 func NewClient(httpClient *http.Client, token string) *Client {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
@@ -31,7 +32,7 @@ func NewClient(httpClient *http.Client, token string) *Client {
 	return c
 }
 
-//doRequest makes a request and puts authorization token in headers
+// doRequest makes a request and puts authorization token in headers.
 func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	req.Header.Set("Authorization", "Bearer "+c.AccessToken)
 	req.Header.Set("Content-Type", "application/json")
@@ -43,23 +44,22 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	if 200 != resp.StatusCode {
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%s", body)
 	}
 
 	return body, nil
 }
 
-//GetAccount returns current user account data
+// GetAccount returns current user account data.
 func (c *Client) GetAccount() (*Response, error) {
 	url := fmt.Sprintf(baseURL + "/account/")
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -78,43 +78,42 @@ func (c *Client) GetAccount() (*Response, error) {
 	return &response, nil
 }
 
-//GetArtist returns Artist object in response
-//
-//Uses "dom" as textFormat by default
+// GetArtist returns Artist object in response
+// Uses "dom" as textFormat by default.
 func (c *Client) GetArtist(id int) (*Response, error) {
 	return c.GetArtistDom(id)
 }
 
-//GetArtistDom returns Artist object in response
-//With "dom" as textFormat
+// GetArtistDom returns Artist object in response
+// With "dom" as textFormat.
 func (c *Client) GetArtistDom(id int) (*Response, error) {
 	return c.getArtist(id, "dom")
 }
 
-//GetArtistPlain returns Artist object in response
-//With "plain" as textFormat
+// GetArtistPlain returns Artist object in response
+// With "plain" as textFormat.
 func (c *Client) GetArtistPlain(id int) (*Response, error) {
 	return c.getArtist(id, "plain")
 }
 
-//GetArtistHTML returns Artist object in response
-//With "html" as textFormat
+// GetArtistHTML returns Artist object in response
+// With "html" as textFormat.
 func (c *Client) GetArtistHTML(id int) (*Response, error) {
 	return c.getArtist(id, "html")
 }
 
-//GetArtistSongs returns array of songs objects in response
-func (c *Client) GetArtistSongs(id int, sort string, per_page int, page int) (*Response, error) {
+// GetArtistSongs returns array of songs objects in response.
+func (c *Client) GetArtistSongs(id int, sort string, perPage int, page int) (*Response, error) {
 	url := fmt.Sprintf(baseURL+"/artists/%d/songs", id)
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	q := req.URL.Query()
 	q.Add("sort", sort)
-	q.Add("per_page", string(per_page))
-	q.Add("page", string(page))
+	q.Add("per_page", strconv.Itoa(perPage))
+	q.Add("page", strconv.Itoa(page))
 	req.URL.RawQuery = q.Encode()
 
 	bytes, err := c.doRequest(req)
@@ -131,10 +130,35 @@ func (c *Client) GetArtistSongs(id int, sort string, per_page int, page int) (*R
 	return &response, nil
 }
 
-//GetSong returns Song object in response
-func (c *Client) GetSong(id int, textFormat string) (*Response, error) {
+// GetSong returns Song object in response
+//
+// Uses "dom" as textFormat by default.
+func (c *Client) GetSong(id int) (*Response, error) {
+	return c.GetSongDom(id)
+}
+
+// GetSongDom returns Song object in response
+// With "dom" as textFormat.
+func (c *Client) GetSongDom(id int) (*Response, error) {
+	return c.getSong(id, "dom")
+}
+
+// GetSongPlain returns Song object in response
+// With "plain" as textFormat.
+func (c *Client) GetSongPlain(id int) (*Response, error) {
+	return c.getSong(id, "plain")
+}
+
+// GetSongHTML returns Song object in response
+// With "html" as textFormat.
+func (c *Client) GetSongHTML(id int) (*Response, error) {
+	return c.getSong(id, "html")
+}
+
+// GetSong returns Song object in response.
+func (c *Client) getSong(id int, textFormat string) (*Response, error) {
 	url := fmt.Sprintf(baseURL+"/songs/%d", id)
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -159,10 +183,10 @@ func (c *Client) GetSong(id int, textFormat string) (*Response, error) {
 	return &response, nil
 }
 
-//getArtist is a method taking id and textFormat as arguments to make request and return Artist object in response
+// getArtist is a method taking id and textFormat as arguments to make request and return Artist object in response.
 func (c *Client) getArtist(id int, textFormat string) (*Response, error) {
 	url := fmt.Sprintf(baseURL+"/artists/%d", id)
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -187,13 +211,12 @@ func (c *Client) getArtist(id int, textFormat string) (*Response, error) {
 	return &response, nil
 }
 
-//Search returns array of Hit objects in response
+// Search returns array of Hit objects in response
 //
-//Currently only songs are searchable by this handler
+// Currently only songs are searchable by this handler.
 func (c *Client) Search(q string) (*Response, error) {
 	url := fmt.Sprintf(baseURL + "/search")
-	req, err := http.NewRequest("GET", url, nil)
-
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -216,10 +239,10 @@ func (c *Client) Search(q string) (*Response, error) {
 	return &response, nil
 }
 
-//GetAnnotation gets annotation object in response
+// GetAnnotation gets annotation object in response.
 func (c *Client) GetAnnotation(id string, textFormat string) (*Response, error) {
-	url := fmt.Sprintf(baseURL+"/annotations/%d", id)
-	req, err := http.NewRequest("GET", url, nil)
+	url := fmt.Sprintf(baseURL+"/annotations/%s", id)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -1,11 +1,7 @@
 package genius
 
-import (
-	"time"
-)
-
-//Response is an actual response object from Genius API
-//Consist links to possible retrievavable objects: Artist, Song, etc
+// Response is an actual response object from Genius API
+// Consist links to possible retrievavable objects: Artist, Song, etc.
 type Response struct {
 	Meta struct {
 		Status  int    `json:"status"`
@@ -23,15 +19,15 @@ type Response struct {
 	} `json:"response"`
 }
 
-//WithBody is a struct to take care of different formats of field "body"
-//If "textFormat" was either "html" or "plain" Process method will put result string in Body field
-//In case of "dom" use RawBody
+// WithBody is a struct to take care of different formats of field "body"
+// If "textFormat" was either "html" or "plain" Process method will put result string in Body field
+// In case of "dom" use RawBody.
 type WithBody struct {
 	Body    string                 `json:"-"`
 	RawBody map[string]interface{} `json:"body"`
 }
 
-//Process will check the textFormat and put result string in Body field if textFormat was "html" or "plain"
+// Process will check the textFormat and put result string in Body field if textFormat was "html" or "plain".
 func (b *WithBody) Process(textFormat string) {
 	if textFormat != "dom" {
 		for _, v := range b.RawBody {
@@ -40,10 +36,10 @@ func (b *WithBody) Process(textFormat string) {
 	}
 }
 
-//Annotation is annotation on Genius API
+// Annotation is annotation on Genius API.
 type Annotation struct {
 	WithBody
-	ApiPath             string        `json:"api_path"`
+	APIPath             string        `json:"api_path"`
 	CommentCount        int           `json:"comment_count"`
 	Community           bool          `json:"community"`
 	CustomPreview       string        `json:"custom_preview"`
@@ -72,7 +68,7 @@ type DescriptionAnnotation struct {
 	Type                 string        `json:"_type"`
 	AnnotatorID          int           `json:"annotator_id"`
 	AnnotatorLogin       string        `json:"annotator_login"`
-	ApiPath              string        `json:"api_path"`
+	APIPath              string        `json:"api_path"`
 	Classification       string        `json:"classification"`
 	Fragment             string        `json:"fragment"`
 	ID                   int           `json:"id"`
@@ -90,7 +86,7 @@ type DescriptionAnnotation struct {
 }
 
 type Annotatable struct {
-	ApiPath   string `json:"api_path"`
+	APIPath   string `json:"api_path"`
 	Context   string `json:"context"`
 	ID        int    `json:"id"`
 	ImageURL  string `json:"image_url"`
@@ -100,8 +96,8 @@ type Annotatable struct {
 	URL       string `json:"url"`
 
 	ClientTimestamps struct {
-		UpdatedByHumanAt time.Time `json:"updated_by_human_at"`
-		LyricsUpdatedAt  time.Time `json:"lyrics_updated_at"`
+		UpdatedByHumanAt int `json:"updated_by_human_at"`
+		LyricsUpdatedAt  int `json:"lyrics_updated_at"`
 	} `json:"client_timestamps"`
 }
 
@@ -144,9 +140,9 @@ type Primary struct {
 	Applicable bool    `json:"applicable"`
 }
 
-//User is user on Genius API
+// User is user on Genius API.
 type User struct {
-	ApiPath                     string        `json:"api_path"`
+	APIPath                     string        `json:"api_path"`
 	Avatar                      *Avatar       `json:"avatar"`
 	HeaderImageURL              string        `json:"header_image_url"`
 	HumanReadableRoleForDisplay string        `json:"human_readable_role_for_display"`
@@ -195,7 +191,7 @@ type Stats struct {
 }
 
 type Album struct {
-	ApiPath     string  `json:api_path`
+	APIPath     string  `json:api_path`
 	CoverArtURL string  `json:"cover_art_url"`
 	FullTitle   string  `json:full_title`
 	ID          int     `json:"id"`
@@ -204,11 +200,11 @@ type Album struct {
 	Artist      *Artist `json:"artist"`
 }
 
-//Song is song on Genius API
+// Song is song on Genius API.
 type Song struct {
 	WithDescription
 	AnnotationCount          int                    `json:"annotation_count"`
-	ApiPath                  string                 `json:"api_path"`
+	APIPath                  string                 `json:"api_path"`
 	EmbedContent             string                 `json:"embed_content"`
 	FactTrack                *FactTrack             `json:"fact_track"`
 	FeaturedVideo            bool                   `json:"features_video"`
@@ -254,9 +250,9 @@ type SongRelationship struct {
 	Songs []*Song `json:"songs"`
 }
 
-//WebPage is web_page on Genius API
+// WebPage is web_page on Genius API.
 type WebPage struct {
-	ApiPath         string `json:"api_path"`
+	APIPath         string `json:"api_path"`
 	Domain          string `json:"domain"`
 	ID              int    `json:"id"`
 	NormalizedURL   string `json:"normalized_url"`
@@ -275,15 +271,15 @@ type Media struct {
 	URL        string `json:"url"`
 }
 
-//WithDescription is a struct to take care of different formats of field "description"
-//If "textFormat" was either "html" or "plain" Process method will put result string in Description field
-//In case of "dom" use RawDescription
+// WithDescription is a struct to take care of different formats of field "description"
+// If "textFormat" was either "html" or "plain" Process method will put result string in Description field
+// In case of "dom" use RawDescription.
 type WithDescription struct {
 	Description    string                 `json:"-"`
 	RawDescription map[string]interface{} `json:"description"`
 }
 
-//Process will check the textFormat and put result string in Description field if textFormat was "html" or "plain"
+// Process will check the textFormat and put result string in Description field if textFormat was "html" or "plain".
 func (d *WithDescription) Process(textFormat string) {
 	if textFormat != "dom" {
 		for _, v := range d.RawDescription {
@@ -292,11 +288,11 @@ func (d *WithDescription) Process(textFormat string) {
 	}
 }
 
-//Artist is artist on Genius API
+// Artist is artist on Genius API.
 type Artist struct {
 	WithDescription
 	AlternateNames        []string               `json:"alternate_names"`
-	ApiPath               string                 `json:"api_path"`
+	APIPath               string                 `json:"api_path"`
 	FacebookName          string                 `json:"facebook_name"`
 	FollowersCount        int                    `json:"followers_count"`
 	HeaderImageURL        string                 `json:"header_image_url"`
@@ -314,9 +310,9 @@ type Artist struct {
 	User                  *User                  `json:"user"`
 }
 
-//Hit is a hit on Genius API
-//Used in /search handler
-//Includes song results only
+// Hit is a hit on Genius API
+// Used in /search handler
+// Includes song results only.
 type Hit struct {
 	Highlights []string `json:"highlights"`
 	Index      string   `json:"index"`
