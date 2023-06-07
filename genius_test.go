@@ -2,8 +2,7 @@ package genius_test
 
 import (
 	"fmt"
-
-	"github.com/broxgit/genius-api/genius/genius"
+	"github.com/broxgit/genius"
 )
 
 func ExampleNewClient() {

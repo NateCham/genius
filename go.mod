@@ -1,3 +1,3 @@
-module github.com/broxgit/genius-api/genius
+module github.com/broxgit/genius
 
 go 1.20

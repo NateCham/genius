@@ -11,7 +11,7 @@ To get token visit https://genius.com/developers
 ```go
 import (
 	"fmt"
-	"github.com/broxgit/genius-api/genius"
+	"github.com/broxgit/api-api/api"
 )
 
 func main() {
