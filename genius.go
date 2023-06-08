@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
 	"net/url"
@@ -134,33 +135,47 @@ func (c *Client) GetArtistSongs(id int, sort string, perPage int, page int) (*Ge
 	return &response, nil
 }
 
+func (c *Client) GetSongWithLyrics(id int) (*Song, error) {
+	song, err := c.GetSongDom(id)
+	if err != nil {
+		return nil, err
+	}
+	lyrics, err := c.GetLyrics(song.URL)
+	if err != nil {
+		return nil, err
+	}
+	song.Lyrics = lyrics
+
+	return song, nil
+}
+
 // GetSong returns Song object in response
 //
 // Uses "dom" as textFormat by default.
-func (c *Client) GetSong(id int) (*GeniusResponse, error) {
+func (c *Client) GetSong(id int) (*Song, error) {
 	return c.GetSongDom(id)
 }
 
 // GetSongDom returns Song object in response
 // With "dom" as textFormat.
-func (c *Client) GetSongDom(id int) (*GeniusResponse, error) {
+func (c *Client) GetSongDom(id int) (*Song, error) {
 	return c.getSong(id, "dom")
 }
 
 // GetSongPlain returns Song object in response
 // With "plain" as textFormat.
-func (c *Client) GetSongPlain(id int) (*GeniusResponse, error) {
+func (c *Client) GetSongPlain(id int) (*Song, error) {
 	return c.getSong(id, "plain")
 }
 
 // GetSongHTML returns Song object in response
 // With "html" as textFormat.
-func (c *Client) GetSongHTML(id int) (*GeniusResponse, error) {
+func (c *Client) GetSongHTML(id int) (*Song, error) {
 	return c.getSong(id, "html")
 }
 
 // GetSong returns Song object in response.
-func (c *Client) getSong(id int, textFormat string) (*GeniusResponse, error) {
+func (c *Client) getSong(id int, textFormat string) (*Song, error) {
 	url := fmt.Sprintf(baseURL+"/songs/%d", id)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
@@ -182,7 +197,7 @@ func (c *Client) getSong(id int, textFormat string) (*GeniusResponse, error) {
 		return nil, err
 	}
 
-	return &response, nil
+	return response.Response.Song, nil
 }
 
 // getArtist is a method taking id and textFormat as arguments to make request and return Artist object in response.
@@ -327,4 +342,42 @@ func getItemFromSearchResponse(response *GeniusResponse, searchTerm string, item
 		return nil, fmt.Errorf("could not find a match for: %s", searchTerm)
 	}
 	return hits[0].Result, nil
+}
+
+func (c *Client) GetLyrics(uri string) (string, error) {
+	var err error
+	var req *http.Request
+	var res *http.Response
+
+	if req, err = http.NewRequest(http.MethodGet, uri, nil); err != nil {
+		return "", err
+	}
+
+	if res, err = c.client.HTTPClient.Do(req); err != nil {
+		return "", err
+	}
+	//
+	defer res.Body.Close()
+
+	bodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+
+	lyrics, extractErr := NewExtractor(strings.NewReader(string(bodyBytes))).Extract()
+	if extractErr != nil {
+		return "", extractErr
+	}
+
+	lyrics = strings.TrimSpace(lyrics)
+
+	if strings.HasSuffix(lyrics, "Embed") {
+		found := false
+		lyrics, found = strings.CutSuffix(lyrics, "Embed")
+		if found {
+			log.Debug().Msg("Embed found at end of lyrics")
+		}
+	}
+
+	return lyrics, nil
 }

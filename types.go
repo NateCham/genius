@@ -221,6 +221,7 @@ type Song struct {
 	ID                                        int                    `json:"id"`
 	Instrumental                              bool                   `json:"instrumental"`
 	Language                                  string                 `json:"language"`
+	Lyrics                                    string                 `json:"lyrics"`
 	LyricsOwnerID                             int                    `json:"lyrics_owner_id"`
 	LyricsState                               string                 `json:"lyrics_state"`
 	LyricsUpdatedAt                           int                    `json:"lyrics_updated_at"`
