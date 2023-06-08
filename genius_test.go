@@ -1,18 +1,20 @@
 package genius_test
 
 import (
-	"fmt"
+	"os"
+	"testing"
+
 	"github.com/broxgit/genius"
 )
 
-func ExampleNewClient() {
-	accessToken := "token"
+func TestNewClient(t *testing.T) {
+	accessToken := os.Getenv("ACCESS_TOKEN")
 	client := genius.NewClient(nil, accessToken)
 
 	response, err := client.GetArtistHTML(16775)
 	if err != nil {
-		panic(err)
+		t.Fatal("error occurred getting artist", err)
 	}
 
-	fmt.Println(response.Response.Artist)
+	t.Log(response.Response.Artist)
 }
