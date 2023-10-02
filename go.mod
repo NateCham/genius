@@ -3,7 +3,7 @@ module github.com/natecham/genius
 go 1.20
 
 require (
-	github.com/natecham/common v0.0.0-20230608152442-9da45e59fc4f
+	github.com/broxgit/common v0.0.0-20230608152442-9da45e59fc4f
 	golang.org/x/net v0.10.0
 )
 
