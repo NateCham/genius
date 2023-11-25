@@ -244,7 +244,7 @@ type Song struct {
 	Album                                     *Album                 `json:"album"`
 	CustomPerformances                        []*CustomPerformance   `json:"custom_performances"`
 	DescriptionAnnotation                     *DescriptionAnnotation `json:"description_annotation"`
-	FeaturedArtists                           []*Artist              `json:"featured_artist"`
+	FeaturedArtists                           []*Artist              `json:"featured_artists"`
 	Media                                     []*Media               `json:"media"`
 	PrimaryArtist                             *Artist                `json:"primary_artist"`
 	ProducerArtists                           []*Artist              `json:"producer_artists"`
