@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/broxgit/genius"
+	"github.com/natecham/genius"
 )
 
 func TestNewClient(t *testing.T) {

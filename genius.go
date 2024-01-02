@@ -14,27 +14,39 @@ import (
 	common "github.com/broxgit/common/http"
 )
 
-const (
-	baseURL string = "https://api.genius.com"
-)
-
 // Client is a client for Genius API.
 type Client struct {
 	AccessToken string
+	baseURL     string
 	client      *common.HTTPRetry
 }
+
+type ClientOption func(client *Client)
 
 // NewClient creates Client to work with Genius API
 // You can pass http.Client or it will use http.DefaultClient by default
 //
 // It requires a token for accessing Genius API.
-func NewClient(httpClient *common.HTTPRetry, token string) *Client {
+func NewClient(httpClient *common.HTTPRetry, token string, opts ...ClientOption) *Client {
 	if httpClient == nil {
 		httpClient = common.NewHTTPRetry()
 	}
 
-	c := &Client{AccessToken: token, client: httpClient}
+	c := &Client{AccessToken: token, client: httpClient, baseURL: "https://api.genius.com"}
+
+	for _, opt := range opts {
+		opt(c)
+	}
+
 	return c
+}
+
+// WithBaseURL provides an alternative base url to use for requests to the Spotify API. This can be used to connect to a
+// staging or other alternative environment.
+func WithBaseURL(url string) ClientOption {
+	return func(client *Client) {
+		client.baseURL = url
+	}
 }
 
 // doRequest makes a request and puts authorization token in headers.
@@ -63,7 +75,7 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 
 // GetAccount returns current user account data.
 func (c *Client) GetAccount() (*GeniusResponse, error) {
-	url := fmt.Sprintf(baseURL + "/account/")
+	url := fmt.Sprintf(c.baseURL + "/account/")
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -109,7 +121,7 @@ func (c *Client) GetArtistHTML(id int) (*GeniusResponse, error) {
 
 // GetArtistSongs returns array of songs objects in response.
 func (c *Client) GetArtistSongs(id int, sort string, perPage int, page int) (*GeniusResponse, error) {
-	url := fmt.Sprintf(baseURL+"/artists/%d/songs", id)
+	url := fmt.Sprintf(c.baseURL+"/artists/%d/songs", id)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -176,7 +188,7 @@ func (c *Client) GetSongHTML(id int) (*Song, error) {
 
 // GetSong returns Song object in response.
 func (c *Client) getSong(id int, textFormat string) (*Song, error) {
-	url := fmt.Sprintf(baseURL+"/songs/%d", id)
+	url := fmt.Sprintf(c.baseURL+"/songs/%d", id)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -200,9 +212,94 @@ func (c *Client) getSong(id int, textFormat string) (*Song, error) {
 	return response.Response.Song, nil
 }
 
+// GetAlbum returns Album object in response
+func (c *Client) GetAlbum(id int, getTracks bool) (*Album, error) {
+	return c.getAlbumDom(id, getTracks)
+}
+
+func (c *Client) getAlbumDom(id int, getTracks bool) (*Album, error) {
+	return c.getAlbum(id, getTracks, "dom")
+}
+
+func (c *Client) getAlbum(id int, getTracks bool, textFormat string) (*Album, error) {
+	getAlbumURL := fmt.Sprintf(c.baseURL+"/albums/%d", id)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, getAlbumURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	q.Add("text_format", textFormat)
+	req.URL.RawQuery = q.Encode()
+
+	bytes, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var response GeniusResponse
+	err = json.Unmarshal(bytes, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	if getTracks {
+		albumTracks, err := c.GetAlbumTracks(id)
+		if err != nil {
+			return nil, err
+		}
+
+		response.Response.Album.Tracks = albumTracks
+	}
+
+	return response.Response.Album, nil
+}
+
+func (c *Client) GetAlbumTracks(id int) ([]*AlbumTrack, error) {
+	var tracks []*AlbumTrack
+	page := 1
+	for page >= 1 {
+		response, err := c.getAlbumTracksPage(id, 20, page)
+		if err != nil {
+			return nil, err
+		}
+
+		page = response.Response.NextPage
+		tracks = append(tracks, response.Response.AlbumTracks...)
+	}
+
+	return tracks, nil
+}
+
+func (c *Client) getAlbumTracksPage(id int, perPage int, page int) (*GeniusResponse, error) {
+	getAlbumURL := fmt.Sprintf(c.baseURL+"/albums/%d/tracks", id)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, getAlbumURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	q.Add("per_page", strconv.Itoa(perPage))
+	q.Add("page", strconv.Itoa(page))
+	req.URL.RawQuery = q.Encode()
+
+	bytes, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var response GeniusResponse
+	err = json.Unmarshal(bytes, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
 // getArtist is a method taking id and textFormat as arguments to make request and return Artist object in response.
 func (c *Client) getArtist(id int, textFormat string) (*GeniusResponse, error) {
-	getArtistURL := fmt.Sprintf(baseURL+"/artists/%d", id)
+	getArtistURL := fmt.Sprintf(c.baseURL+"/artists/%d", id)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, getArtistURL, nil)
 	if err != nil {
 		return nil, err
@@ -230,7 +327,7 @@ func (c *Client) getArtist(id int, textFormat string) (*GeniusResponse, error) {
 //
 // Currently only songs are searchable by this handler.
 func (c *Client) Search(q string) (*GeniusResponse, error) {
-	searchURL := fmt.Sprintf(baseURL + "/search")
+	searchURL := fmt.Sprintf(c.baseURL + "/search")
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, searchURL, nil)
 	if err != nil {
 		return nil, err
@@ -288,7 +385,7 @@ func WebSearch(perPage int, searchTerm string) (GeniusResponse, error) {
 
 // GetAnnotation gets annotation object in response.
 func (c *Client) GetAnnotation(id string, textFormat string) (*GeniusResponse, error) {
-	annotationsURL := fmt.Sprintf(baseURL+"/annotations/%s", id)
+	annotationsURL := fmt.Sprintf(c.baseURL+"/annotations/%s", id)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, annotationsURL, nil)
 	if err != nil {
 		return nil, err

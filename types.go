@@ -13,15 +13,17 @@ type Meta struct {
 }
 
 type Response struct {
-	Artist     *Artist     `json:"artist"`
-	Song       *Song       `json:"song"`
-	Annotation *Annotation `json:"annotation"`
-	User       *User       `json:"user"`
-	Songs      []*Song     `json:"songs"`
-	NextPage   int         `json:"next_page"`
-	Hits       []*Hit      `json:"hits"`
-	WebPage    *WebPage    `json:"web_page"`
-	Sections   []Sections  `json:"sections"`
+	Artist      *Artist       `json:"artist"`
+	Album       *Album        `json:"album"`
+	Song        *Song         `json:"song"`
+	Annotation  *Annotation   `json:"annotation"`
+	User        *User         `json:"user"`
+	Songs       []*Song       `json:"songs"`
+	AlbumTracks []*AlbumTrack `json:"tracks"`
+	NextPage    int           `json:"next_page"`
+	Hits        []*Hit        `json:"hits"`
+	WebPage     *WebPage      `json:"web_page"`
+	Sections    []Sections    `json:"sections"`
 }
 
 // WithBody is a struct to take care of different formats of field "body"
@@ -59,7 +61,7 @@ type Annotation struct {
 	VotesTotal          int           `json:"voters_total"`
 	CurrentUserMetadata *UserMetadata `json:"current_user_metadata"`
 	Authors             []*Author     `json:"authors"`
-	CosignedBy          []string      `json:"cosigned_by"`
+	CosignedBy          []*Artist     `json:"cosigned_by"`
 	VerifiedBy          *User         `json:"verified_by"`
 }
 
@@ -196,6 +198,56 @@ type Stats struct {
 }
 
 type Album struct {
+	APIPath              string `json:"api_path"`
+	CommentCount         int    `json:"comment_count"`
+	CoverArtURL          string `json:"cover_art_url"`
+	CustomHeaderImageURL string `json:"custom_header_image_url"`
+	FullTitle            string `json:"full_title"`
+	HeaderImageURL       string `json:"header_image_url"`
+	ID                   int    `json:"id"`
+	LockState            string `json:"lock_state"`
+	Name                 string `json:"name"`
+	PyongsCount          int    `json:"pyongs_count"`
+	ReleaseDate          string `json:"release_date"`
+	//ReleaseDateComponents DateComponents     `json:"release_date_components"`
+	ReleaseDateForDisplay string              `json:"release_date_for_display"`
+	URL                   string              `json:"url"`
+	CurrentUserMetadata   *UserMetadata       `json:"current_user_metadata"`
+	SongPageviews         int                 `json:"song_pageviews"`
+	Artist                *Artist             `json:"artist"`
+	CoverArts             []*CoverArt         `json:"cover_arts"`
+	DescriptionAnnotation *Annotation         `json:"description_annotation"`
+	PerformanceGroups     []*PerformanceGroup `json:"performance_groups"`
+	SongPerformances      []*Performance      `json:"song_performances"`
+	Tracks                []*AlbumTrack       `json:"tracks"`
+}
+
+type AlbumTrack struct {
+	Number int  `json:"number"`
+	Song   Song `json:"song"`
+}
+
+type CoverArt struct {
+	Annotated         bool   `json:"annotated"`
+	APIPath           string `json:"api_path"`
+	ID                int    `json:"id"`
+	ImageURL          string `json:"image_url"`
+	ThumbnailImageURL string `json:"thumbnail_image_url"`
+	URL               string `json:"url"`
+}
+
+type PerformanceGroup struct {
+	Label   string    `json:"label"`
+	Artists []*Artist `json:"artists"`
+}
+
+type Performance struct {
+	Label   string    `json:"label"`
+	Artists []*Artist `json:"artists"`
+}
+
+/*
+type Album struct {
 	APIPath     string  `json:api_path`
 	CoverArtURL string  `json:"cover_art_url"`
 	FullTitle   string  `json:full_title`
@@ -204,6 +256,7 @@ type Album struct {
 	URL         string  `json:"url"`
 	Artist      *Artist `json:"artist"`
 }
+*/
 
 // Song is song on Genius API.
 type Song struct {
