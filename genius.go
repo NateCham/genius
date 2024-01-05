@@ -3,6 +3,7 @@ package genius
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/rs/zerolog/log"
 	"io"
@@ -207,6 +208,10 @@ func (c *Client) getSong(id int, textFormat string) (*Song, error) {
 	err = json.Unmarshal(bytes, &response)
 	if err != nil {
 		return nil, err
+	}
+
+	if response.Response == nil {
+		return nil, errors.New("No song found")
 	}
 
 	return response.Response.Song, nil
