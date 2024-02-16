@@ -15,11 +15,12 @@ type Meta struct {
 type Response struct {
 	Artist      *Artist       `json:"artist"`
 	Album       *Album        `json:"album"`
+	AlbumTracks []*AlbumTrack `json:"tracks"`
+	Albums      []*Album      `json:"albums"`
 	Song        *Song         `json:"song"`
+	Songs       []*Song       `json:"songs"`
 	Annotation  *Annotation   `json:"annotation"`
 	User        *User         `json:"user"`
-	Songs       []*Song       `json:"songs"`
-	AlbumTracks []*AlbumTrack `json:"tracks"`
 	NextPage    int           `json:"next_page"`
 	Hits        []*Hit        `json:"hits"`
 	WebPage     *WebPage      `json:"web_page"`

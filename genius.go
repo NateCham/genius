@@ -11,15 +11,19 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
+)
 
-	common "github.com/broxgit/common/http"
+const (
+	defaultRetryDuration = time.Second * 5
 )
 
 // Client is a client for Genius API.
 type Client struct {
-	AccessToken string
-	baseURL     string
-	client      *common.HTTPRetry
+	AccessToken   string
+	baseURL       string
+	unofficialUrl string
+	client        *http.Client
 }
 
 type ClientOption func(client *Client)
@@ -28,12 +32,12 @@ type ClientOption func(client *Client)
 // You can pass http.Client or it will use http.DefaultClient by default
 //
 // It requires a token for accessing Genius API.
-func NewClient(httpClient *common.HTTPRetry, token string, opts ...ClientOption) *Client {
+func NewClient(httpClient *http.Client, token string, opts ...ClientOption) *Client {
 	if httpClient == nil {
-		httpClient = common.NewHTTPRetry()
+		httpClient = http.DefaultClient
 	}
 
-	c := &Client{AccessToken: token, client: httpClient, baseURL: "https://api.genius.com"}
+	c := &Client{AccessToken: token, client: httpClient, baseURL: "https://api.genius.com", unofficialUrl: "https://genius.com/api"}
 
 	for _, opt := range opts {
 		opt(c)
@@ -50,28 +54,58 @@ func WithBaseURL(url string) ClientOption {
 	}
 }
 
+func retryDuration(resp *http.Response) time.Duration {
+	raw := resp.Header.Get("Retry-After")
+	if raw == "" {
+		return defaultRetryDuration
+	}
+	seconds, err := strconv.ParseInt(raw, 10, 32)
+	if err != nil {
+		return defaultRetryDuration
+	}
+	return time.Duration(seconds) * time.Second
+}
+
 // doRequest makes a request and puts authorization token in headers.
 func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	req.Header.Set("Authorization", "Bearer "+c.AccessToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, err
+	for {
+		resp, err := c.client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		defer resp.Body.Close()
+
+		if resp.StatusCode == 429 || resp.StatusCode == 1015 {
+			time.Sleep(retryDuration(resp))
+			continue
+			/*
+				select {
+					//case <-ctx.Done():
+						// If the context is cancelled, return the original error
+				case <-time.After(retryDuration(resp)):
+					fmt.Printf("Retrying url: %s\n", req.URL.Path)
+					continue
+				}
+			*/
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("%s", body)
+		}
+
+		return body, nil
 	}
 
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s", body)
-	}
-
-	return body, nil
+	return nil, nil
 }
 
 // GetAccount returns current user account data.
@@ -120,8 +154,52 @@ func (c *Client) GetArtistHTML(id int) (*GeniusResponse, error) {
 	return c.getArtist(id, "html")
 }
 
+func getPerPage(total int, fetched int, perPage int) int {
+	if newPerPage := total - fetched; newPerPage < perPage {
+		return newPerPage
+	}
+	return perPage
+}
+
+func (c *Client) GetArtistSongs(id int, sort string, total int) ([]*Song, error) {
+	perPage := 50
+	var songs []*Song
+	page := 1
+
+	// Check if total is 0 and set a flag
+	fetchUntilEnd := total == -1
+
+	// Initialize newPerPage only if total is not -1
+	var newPerPage int
+	if !fetchUntilEnd {
+		newPerPage = getPerPage(total, (page-1)*perPage, perPage)
+	}
+
+	for fetchUntilEnd || newPerPage > 0 {
+
+		response, err := c.getArtistSongsPage(id, sort, newPerPage, page)
+		if err != nil {
+			return nil, err
+		}
+
+		// Break the loop if NextPage is nil and total is 0
+		if fetchUntilEnd && response.Response.NextPage == 0 {
+			break
+		}
+
+		songs = append(songs, response.Response.Songs...)
+
+		page = response.Response.NextPage
+		if !fetchUntilEnd {
+			newPerPage = getPerPage(total, (page-1)*perPage, perPage)
+		}
+	}
+
+	return songs, nil
+}
+
 // GetArtistSongs returns array of songs objects in response.
-func (c *Client) GetArtistSongs(id int, sort string, perPage int, page int) (*GeniusResponse, error) {
+func (c *Client) getArtistSongsPage(id int, sort string, perPage int, page int) (*GeniusResponse, error) {
 	url := fmt.Sprintf(c.baseURL+"/artists/%d/songs", id)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
@@ -217,6 +295,48 @@ func (c *Client) getSong(id int, textFormat string) (*Song, error) {
 	return response.Response.Song, nil
 }
 
+func (c *Client) GetArtistAlbums(id int) ([]*Album, error) {
+	var albums []*Album
+	page := 1
+	for page >= 1 {
+		response, err := c.getArtistAlbumsPage(id, 50, page)
+		if err != nil {
+			return nil, err
+		}
+
+		page = response.Response.NextPage
+		albums = append(albums, response.Response.Albums...)
+	}
+
+	return albums, nil
+}
+
+func (c *Client) getArtistAlbumsPage(id int, perPage int, page int) (*GeniusResponse, error) {
+	getArtistAlbumsURL := fmt.Sprintf(c.unofficialUrl+"/artists/%d/albums", id)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, getArtistAlbumsURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	q.Add("per_page", strconv.Itoa(perPage))
+	q.Add("page", strconv.Itoa(page))
+	req.URL.RawQuery = q.Encode()
+
+	bytes, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var response GeniusResponse
+	err = json.Unmarshal(bytes, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
 // GetAlbum returns Album object in response
 func (c *Client) GetAlbum(id int, getTracks bool) (*Album, error) {
 	return c.getAlbumDom(id, getTracks)
@@ -264,7 +384,7 @@ func (c *Client) GetAlbumTracks(id int) ([]*AlbumTrack, error) {
 	var tracks []*AlbumTrack
 	page := 1
 	for page >= 1 {
-		response, err := c.getAlbumTracksPage(id, 20, page)
+		response, err := c.getAlbumTracksPage(id, 50, page)
 		if err != nil {
 			return nil, err
 		}
@@ -356,36 +476,33 @@ func (c *Client) Search(q string) (*GeniusResponse, error) {
 	return &response, nil
 }
 
-func WebSearch(perPage int, searchTerm string) (GeniusResponse, error) {
-	webSearchURL := "https://genius.com/api/search/multi?"
+//https://genius.com/api/page_data/album?page_path=%2Falbums%2FVarious-artists%2FAbove-the-rim-the-soundtrack
+
+func (c *Client) WebSearch(perPage int, searchTerm string) (*GeniusResponse, error) {
+	searchURL := fmt.Sprintf(c.baseURL + "/search/multi")
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, searchURL, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	params := url.Values{}
 	params.Add("per_page", strconv.Itoa(perPage))
 	params.Add("q", searchTerm)
+	req.URL.RawQuery = params.Encode()
 
-	requestURL, _ := url.ParseRequestURI(webSearchURL)
-	requestURL.RawQuery = params.Encode()
-	searchURL := fmt.Sprintf("%v", requestURL)
-
-	var target GeniusResponse
-
-	response, err := http.Get(searchURL)
+	bytes, err := c.doRequest(req)
 	if err != nil {
-		return target, err
+		return nil, err
 	}
 
-	defer response.Body.Close()
-
-	body, err := io.ReadAll(response.Body)
+	var response GeniusResponse
+	err = json.Unmarshal(bytes, &response)
 	if err != nil {
-		return target, err
+		return nil, err
 	}
 
-	if err = json.Unmarshal(body, &target); err != nil {
-		return target, err
-	}
-
-	return target, nil
+	return &response, nil
 }
 
 // GetAnnotation gets annotation object in response.
@@ -455,7 +572,7 @@ func (c *Client) GetLyrics(uri string) (string, error) {
 		return "", err
 	}
 
-	if res, err = c.client.HTTPClient.Do(req); err != nil {
+	if res, err = c.client.Do(req); err != nil {
 		return "", err
 	}
 	//
